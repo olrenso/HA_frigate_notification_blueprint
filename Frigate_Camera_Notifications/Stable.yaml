@@ -1,6 +1,6 @@
 blueprint:
-  name: Frigate Notifications (0.14.0.2y)
-  author: SgtBatten
+  name: "Frigate custom Notifications (based on 0.14.0.2y)"
+  author: SgtBatten, Lorenzo
   homeassistant:
     min_version: 2024.11.0
   description: |
@@ -32,7 +32,7 @@ blueprint:
     Go to https://github.com/SgtBatten/HA_blueprints to report bugs, request new features, or get support with your configuration.
 
   domain: automation
-  source_url: https://github.com/SgtBatten/HA_blueprints/blob/main/Frigate_Camera_Notifications/Stable.yaml
+  source: https://github.com/olrenso/HA_frigate_notification_blueprint/blob/main/Frigate_Camera_Notifications/Stable.yaml
   input:
     camera:
       name: Frigate Cameras
@@ -131,24 +131,193 @@ blueprint:
         message:
           name: Notification Message
           description: |
-            The message of the notification.
-            You can use variables such as {{camera_name}} and {{label}}
-            e.g., A {{ label }} {{ ' was' if type == 'end' else '' }} detected on the {{ camera_name }} camera.
-
-          default: "A {{ label }} {{ 'was detected' }} on the {{ camera_name }} camera."
+            Il testo della notifica. Preconfigurato con il template italiano avanzato (singolari/plurali, zone e telecamere).
+          default: |
+            {%- set singular = {'person': 'una persona', 'car': "un'auto", 'motorcycle': 'una moto', 'bicycle': 'una bicicletta', 'truck': 'un camion', 'tractor': 'un trattore', 'dog': 'un cane', 'cat': 'un gatto', 'bird': 'un uccello', 'horse': 'un cavallo', 'fox': 'una volpe', 'wild_boar': 'un cinghiale', 'deer': 'un cervo', 'hare': 'una lepre', 'wildlife': 'un animale selvatico', 'poultry': 'del pollame'} -%}
+            {%- set plural = {'person': 'persone', 'car': 'auto', 'motorcycle': 'moto', 'bicycle': 'biciclette', 'truck': 'camion', 'tractor': 'trattori', 'dog': 'cani', 'cat': 'gatti', 'bird': 'uccelli', 'horse': 'cavalli', 'fox': 'volpi', 'wild_boar': 'cinghiali', 'deer': 'cervi', 'hare': 'lepri', 'wildlife': 'animali selvatici', 'poultry': 'pollame'} -%}
+            {%- set nomi = {'baracca_wide': 'Camera Baracca', 'baracca_pt': 'Camera Baracca PTZ (orto)', 'casello_ant_wide': 'Camera Casello', 'casello_ant_pt': 'Camera Casello PTZ (orto)', 'casello_post_wide': 'Camera Retro Casello', 'casello_post_pt': 'Camera orto PTZ'} -%}
+            {%- set cam_clean = camera | lower | trim if camera is defined else '' -%}
+            {%- set nome_camera = nomi.get(cam_clean, camera_name if camera_name is defined else camera) -%}
+            {%- set raw_det = event['after']['data']['detections'] if (event is defined and event is mapping and 'after' in event and 'data' in event['after'] and 'detections' in event['after']['data']) else (detections if (detections is defined and detections is iterable and detections is not string) else []) -%}
+            {%- set det_count = raw_det | length -%}
+            {%- set raw_list = objects if objects is defined and objects is iterable and objects is not string else (label | string).split(',') -%}
+            {%- set ns_raw = namespace(clean=[]) -%}
+            {%- for item in raw_list -%}
+              {%- set clean = item | lower | trim -%}
+              {%- if clean != '' and '-verified' not in clean -%}
+                {%- set ns_raw.clean = ns_raw.clean + [clean] -%}
+              {%- endif -%}
+            {%- endfor -%}
+            {%- set sub_list = sub_labels if sub_labels is defined and sub_labels is iterable and sub_labels is not string else [] -%}
+            {%- set ns_sub = namespace(names=[]) -%}
+            {%- for s in sub_list -%}
+              {%- if s | trim != '' -%}
+                {%- set ns_sub.names = ns_sub.names + [s | trim | title] -%}
+              {%- endif -%}
+            {%- endfor -%}
+            {%- if ns_sub.names | length == 0 -%}
+              {%- for item in raw_list -%}
+                {%- set clean = item | lower | trim -%}
+                {%- if clean not in singular and clean != '' -%}
+                  {%- set ns_sub.names = ns_sub.names + [item | trim | title] -%}
+                {%- endif -%}
+              {%- endfor -%}
+            {%- endif -%}
+            {%- set phrases = namespace(list=[]) -%}
+            {%- for name in ns_sub.names -%}
+              {%- set phrases.list = phrases.list + [name] -%}
+            {%- endfor -%}
+            {%- for k in ns_raw.clean | unique -%}
+              {%- if k in singular -%}
+                {%- set sensor_name = 'sensor.' ~ cam_clean ~ '_' ~ k ~ '_count' -%}
+                {%- set sensor_val = states(sensor_name) | int(0) if states is defined else 0 -%}
+                {%- if ns_raw.clean | unique | list | length == 1 -%}
+                  {%- set is_plural = (sensor_val >= 2) or (det_count >= 2) -%}
+                {%- else -%}
+                  {%- set is_plural = (sensor_val >= 2) -%}
+                {%- endif -%}
+                {%- if k == 'person' and ns_sub.names | length > 0 -%}
+                  {%- if is_plural -%}
+                    {%- set phrases.list = phrases.list + ['persone'] -%}
+                  {%- endif -%}
+                {%- else -%}
+                  {%- if is_plural -%}
+                    {%- set phrases.list = phrases.list + [plural.get(k, k)] -%}
+                  {%- else -%}
+                    {%- set phrases.list = phrases.list + [singular.get(k, k)] -%}
+                  {%- endif -%}
+                {%- endif -%}
+              {%- endif -%}
+            {%- endfor -%}
+            {%- set formatted = '' -%}
+            {%- if phrases.list | length == 0 -%}
+              {%- set formatted = 'Movimento' -%}
+            {%- else -%}
+              {%- set first_elem = phrases.list[0] -%}
+              {%- set first_cap = first_elem[0] | upper ~ first_elem[1:] -%}
+              {%- set final_list = [first_cap] + phrases.list[1:] -%}
+              {%- if final_list | length == 1 -%}
+                {%- set formatted = final_list[0] -%}
+              {%- elif final_list | length == 2 -%}
+                {%- set formatted = final_list[0] ~ ' e ' ~ final_list[1] -%}
+              {%- else -%}
+                {%- set formatted = final_list[:-1] | join(', ') ~ ' e ' ~ final_list[-1] -%}
+              {%- endif -%}
+            {%- endif -%}
+            {%- set ignora_zone = ['tutto_il_frame', 'full_frame', 'tutto_schermo', 'trigger', 'tracking'] -%}
+            {%- set raw_z = after_zones if after_zones is defined and after_zones else (entered_zones if entered_zones is defined and entered_zones else []) -%}
+            {%- set z_list = raw_z if raw_z is iterable and raw_z is not string else ([raw_z] if raw_z else []) -%}
+            {%- set ns_z = namespace(valid=[]) -%}
+            {%- for z_item in z_list -%}
+              {%- if (z_item | lower | trim) not in ignora_zone -%}
+                {%- set ns_z.valid = ns_z.valid + [z_item] -%}
+              {%- endif -%}
+            {%- endfor -%}
+            {%- if ns_z.valid | length > 0 -%}
+              {%- set z_str = ns_z.valid | map('replace', '_', ' ') | map('title') | join(', ') -%}
+              {{ formatted }} - {{ z_str }}, {{ nome_camera }}
+            {%- else -%}
+              {{ formatted }} - {{ nome_camera }}
+            {%- endif -%}
           selector:
             select:
               options:
-                - label: "Default:   e.g., A Person was detected on the Side camera."
+                - label: "Italiano Avanzato (Predefinito: Singolari/Plurali, Zone e Nomi Telecamere)"
+                  value: |
+                    {%- set singular = {'person': 'una persona', 'car': "un'auto", 'motorcycle': 'una moto', 'bicycle': 'una bicicletta', 'truck': 'un camion', 'tractor': 'un trattore', 'dog': 'un cane', 'cat': 'un gatto', 'bird': 'un uccello', 'horse': 'un cavallo', 'fox': 'una volpe', 'wild_boar': 'un cinghiale', 'deer': 'un cervo', 'hare': 'una lepre', 'wildlife': 'un animale selvatico', 'poultry': 'del pollame'} -%}
+                    {%- set plural = {'person': 'persone', 'car': 'auto', 'motorcycle': 'moto', 'bicycle': 'biciclette', 'truck': 'camion', 'tractor': 'trattori', 'dog': 'cani', 'cat': 'gatti', 'bird': 'uccelli', 'horse': 'cavalli', 'fox': 'volpi', 'wild_boar': 'cinghiali', 'deer': 'cervi', 'hare': 'lepri', 'wildlife': 'animali selvatici', 'poultry': 'pollame'} -%}
+                    {%- set nomi = {'baracca_wide': 'Camera Baracca', 'baracca_pt': 'Camera Baracca PTZ (orto)', 'casello_ant_wide': 'Camera Casello', 'casello_ant_pt': 'Camera Casello PTZ (orto)', 'casello_post_wide': 'Camera Retro Casello', 'casello_post_pt': 'Camera orto PTZ'} -%}
+                    {%- set cam_clean = camera | lower | trim if camera is defined else '' -%}
+                    {%- set nome_camera = nomi.get(cam_clean, camera_name if camera_name is defined else camera) -%}
+                    {%- set raw_det = event['after']['data']['detections'] if (event is defined and event is mapping and 'after' in event and 'data' in event['after'] and 'detections' in event['after']['data']) else (detections if (detections is defined and detections is iterable and detections is not string) else []) -%}
+                    {%- set det_count = raw_det | length -%}
+                    {%- set raw_list = objects if objects is defined and objects is iterable and objects is not string else (label | string).split(',') -%}
+                    {%- set ns_raw = namespace(clean=[]) -%}
+                    {%- for item in raw_list -%}
+                      {%- set clean = item | lower | trim -%}
+                      {%- if clean != '' and '-verified' not in clean -%}
+                        {%- set ns_raw.clean = ns_raw.clean + [clean] -%}
+                      {%- endif -%}
+                    {%- endfor -%}
+                    {%- set sub_list = sub_labels if sub_labels is defined and sub_labels is iterable and sub_labels is not string else [] -%}
+                    {%- set ns_sub = namespace(names=[]) -%}
+                    {%- for s in sub_list -%}
+                      {%- if s | trim != '' -%}
+                        {%- set ns_sub.names = ns_sub.names + [s | trim | title] -%}
+                      {%- endif -%}
+                    {%- endfor -%}
+                    {%- if ns_sub.names | length == 0 -%}
+                      {%- for item in raw_list -%}
+                        {%- set clean = item | lower | trim -%}
+                        {%- if clean not in singular and clean != '' -%}
+                          {%- set ns_sub.names = ns_sub.names + [item | trim | title] -%}
+                        {%- endif -%}
+                      {%- endfor -%}
+                    {%- endif -%}
+                    {%- set phrases = namespace(list=[]) -%}
+                    {%- for name in ns_sub.names -%}
+                      {%- set phrases.list = phrases.list + [name] -%}
+                    {%- endfor -%}
+                    {%- for k in ns_raw.clean | unique -%}
+                      {%- if k in singular -%}
+                        {%- set sensor_name = 'sensor.' ~ cam_clean ~ '_' ~ k ~ '_count' -%}
+                        {%- set sensor_val = states(sensor_name) | int(0) if states is defined else 0 -%}
+                        {%- if ns_raw.clean | unique | list | length == 1 -%}
+                          {%- set is_plural = (sensor_val >= 2) or (det_count >= 2) -%}
+                        {%- else -%}
+                          {%- set is_plural = (sensor_val >= 2) -%}
+                        {%- endif -%}
+                        {%- if k == 'person' and ns_sub.names | length > 0 -%}
+                          {%- if is_plural -%}
+                            {%- set phrases.list = phrases.list + ['persone'] -%}
+                          {%- endif -%}
+                        {%- else -%}
+                          {%- if is_plural -%}
+                            {%- set phrases.list = phrases.list + [plural.get(k, k)] -%}
+                          {%- else -%}
+                            {%- set phrases.list = phrases.list + [singular.get(k, k)] -%}
+                          {%- endif -%}
+                        {%- endif -%}
+                      {%- endif -%}
+                    {%- endfor -%}
+                    {%- set formatted = '' -%}
+                    {%- if phrases.list | length == 0 -%}
+                      {%- set formatted = 'Movimento' -%}
+                    {%- else -%}
+                      {%- set first_elem = phrases.list[0] -%}
+                      {%- set first_cap = first_elem[0] | upper ~ first_elem[1:] -%}
+                      {%- set final_list = [first_cap] + phrases.list[1:] -%}
+                      {%- if final_list | length == 1 -%}
+                        {%- set formatted = final_list[0] -%}
+                      {%- elif final_list | length == 2 -%}
+                        {%- set formatted = final_list[0] ~ ' e ' ~ final_list[1] -%}
+                      {%- else -%}
+                        {%- set formatted = final_list[:-1] | join(', ') ~ ' e ' ~ final_list[-1] -%}
+                      {%- endif -%}
+                    {%- endif -%}
+                    {%- set ignora_zone = ['tutto_il_frame', 'full_frame', 'tutto_schermo', 'trigger', 'tracking'] -%}
+                    {%- set raw_z = after_zones if after_zones is defined and after_zones else (entered_zones if entered_zones is defined and entered_zones else []) -%}
+                    {%- set z_list = raw_z if raw_z is iterable and raw_z is not string else ([raw_z] if raw_z else []) -%}
+                    {%- set ns_z = namespace(valid=[]) -%}
+                    {%- for z_item in z_list -%}
+                      {%- if (z_item | lower | trim) not in ignora_zone -%}
+                        {%- set ns_z.valid = ns_z.valid + [z_item] -%}
+                      {%- endif -%}
+                    {%- endfor -%}
+                    {%- if ns_z.valid | length > 0 -%}
+                      {%- set z_str = ns_z.valid | map('replace', '_', ' ') | map('title') | join(', ') -%}
+                      {{ formatted }} - {{ z_str }}, {{ nome_camera }}
+                    {%- else -%}
+                      {{ formatted }} - {{ nome_camera }}
+                    {%- endif -%}
+                - label: "Italiano Breve (es. Persona rilevata - Camera)"
+                  value: "{{ label }} rilevato - {{ camera_name }}"
+                - label: "Italiano Breve con orario HH:MM"
+                  value: "{{ label }} rilevato - {{ camera_name }} alle {{event['after']['start_time']|timestamp_custom('%H:%M')}}"
+                - label: "Default Inglese: A Person was detected on the Side camera."
                   value: "A {{ label }} {{ 'was detected' }} on the {{ camera_name }} camera."
-                - label: "Short:     e.g., Person detected - Side"
+                - label: "Short Inglese: Person detected - Side"
                   value: "{{ label }} detected - {{ camera_name }}"
-                - label: "Short with a timestamp HH:MM"
-                  value: "{{ label }} detected - {{ camera_name }} at {{event['after']['start_time']|timestamp_custom('%H:%M')}}"
-                - label: "Long:      e.g., A Person was detected on the Side camera in the driveway."
-                  value: "{{ label }}{{ ' was' if type == 'end' else '' }} detected on the {{ camera_name }} camera{{' in the ' if after_zones|length}}{{ after_zones | join(', ') | replace('_', ' ' ) | title }}."
-                - label: "Long with a timestamp HH:MM"
-                  value: "{{ label }}{{ ' was' if type == 'end' else '' }} detected on the {{ camera_name }} camera{{' in the ' if after_zones|length}}{{ after_zones | join(', ') | replace('_', ' ' ) | title }} at {{event['after']['start_time']|timestamp_custom('%H:%M')}}."
               custom_value: true
         label_names:
           name: Object Names (Optional)
@@ -430,6 +599,41 @@ blueprint:
           name: Notification Channel - Android only (Optional)
           description: Create a new channel for notifications to allow custom notification sounds, vibration patterns, and override of Do Not Disturb mode. Configured directly on the device.
           default: ""
+        silent_entity:
+          name: "Entità Silenziamento (Opzionale)"
+          description: "Seleziona l'helper (Schedule, Binary Sensor o Input Boolean) che quando è ON attiva la modalità silenziosa per gli oggetti selezionati sotto."
+          default: ""
+          selector:
+            entity:
+              domain:
+                - binary_sensor
+                - input_boolean
+                - schedule
+        silent_objects:
+          name: "Oggetti da Silenziare"
+          description: "Seleziona quali oggetti silenziare quando l'helper è attivo (es. animali). Le persone e le auto continueranno a suonare regolarmente con allarme."
+          default:
+            - dog
+            - cat
+            - fox
+            - wild_boar
+            - deer
+            - hare
+            - bird
+          selector:
+            select:
+              multiple: true
+              custom_value: true
+              options:
+                - dog
+                - cat
+                - fox
+                - wild_boar
+                - deer
+                - hare
+                - bird
+                - person
+                - car
     filters:
       name: |
         # Filters
@@ -1035,6 +1239,20 @@ variables:
   states_filter: "{{ input_states | list | lower }}"
   color: !input color
   sound: !input sound
+  silent_entity: !input silent_entity
+  silent_objects: !input silent_objects
+  is_silent: >-
+    {% if silent_entity != '' and is_state(silent_entity, 'on') %}
+      {% set target_objs = silent_objects | default([]) %}
+      {% set raw_objs = (objects or []) | map('regex_replace', '-verified$', '') | list %}
+      {% if raw_objs | length > 0 %}
+        {{ raw_objs | select('in', target_objs) | list | length > 0 and raw_objs | reject('in', target_objs) | list | length == 0 }}
+      {% else %}
+        false
+      {% endif %}
+    {% else %}
+      false
+    {% endif %}
   input_volume: !input volume
   volume: "{{ (1 * input_volume|int(100))/100 }}"
   sticky: !input sticky
@@ -1219,9 +1437,11 @@ actions:
                           video: "{{video}}"
                           clickAction: "{{tap_action}}"
                           ttl: 0
-                          priority: high
+                          priority: "{{ 'low' if (is_silent or silent_update | default(false)) else 'high' }}"
+                          importance: "{{ 'low' if (is_silent or silent_update | default(false)) else 'high' }}"
+                          vibrationPattern: "{{ '0' if (is_silent or silent_update | default(false)) else '' }}"
                           sticky: "{{sticky}}"
-                          channel: "{{'alarm_stream' if critical else channel}}"
+                          channel: "{{ 'alarm_stream' if (critical and not is_silent and not silent_update | default(false)) else channel }}"
                           car_ui: "{{android_auto}}"
                           # iOS Specific
                           subtitle: "{{subtitle}}"
@@ -1230,10 +1450,11 @@ actions:
                             url: "{{video if video else attachment }}"
                             content-type: "{{ 'application/vnd.apple.mpegurl' if 'm3u8' in video else 'mp4' if 'mp4' in video else 'jpeg' if 'jpg' in attachment else 'gif' }}"
                           push:
+                            interruption-level: "{{ 'passive' if is_silent else 'time-sensitive' if critical else 'active' }}"
                             sound:
-                              name: "{{sound}}"
-                              volume: "{{ iif(sound == 'none', 0, volume) }}"
-                              critical: "{{ iif(critical, 1, 0) }}"
+                              name: "{{ 'none' if is_silent else sound }}"
+                              volume: "{{ 0 if is_silent else iif(sound == 'none', 0, volume) }}"
+                              critical: "{{ 0 if is_silent else iif(critical, 1, 0) }}"
                           entity_id: "{{ios_live_view}}"
                           # Actions
                           actions:
@@ -1263,9 +1484,11 @@ actions:
                             subject: "{{subtitle}}"
                             clickAction: "{{tap_action}}"
                             ttl: 0
-                            priority: high
+                            priority: "{{ 'low' if (is_silent or silent_update | default(false)) else 'high' }}"
+                            importance: "{{ 'low' if (is_silent or silent_update | default(false)) else 'high' }}"
+                            vibrationPattern: "{{ '0' if (is_silent or silent_update | default(false)) else '' }}"
                             sticky: "{{sticky}}"
-                            channel: "{{'alarm_stream' if critical else channel}}"
+                            channel: "{{ 'alarm_stream' if (critical and not is_silent and not silent_update | default(false)) else channel }}"
                             car_ui: "{{android_auto}}"
                             # Android/Fire TV
                             image:
@@ -1284,10 +1507,11 @@ actions:
                               url: "{{video if video else attachment }}"
                               content-type: "{{ 'application/vnd.apple.mpegurl' if 'm3u8' in video else 'mp4' if 'mp4' in video else 'jpeg' if 'jpg' in attachment else 'gif' }}"
                             push:
+                              interruption-level: "{{ 'passive' if is_silent else 'time-sensitive' if critical else 'active' }}"
                               sound:
-                                name: "{{sound}}"
-                                volume: "{{ iif(sound == 'none', 0, volume) }}"
-                                critical: "{{ iif(critical, 1, 0) }}"
+                                name: "{{ 'none' if is_silent else sound }}"
+                                volume: "{{ 0 if is_silent else iif(sound == 'none', 0, volume) }}"
+                                critical: "{{ 0 if is_silent else iif(critical, 1, 0) }}"
                             entity_id: "{{ios_live_view}}"
                             # Actions
                             actions:
@@ -1318,9 +1542,11 @@ actions:
                         video: "{{video}}"
                         clickAction: "{{tap_action}}"
                         ttl: 0
-                        priority: high
+                        priority: "{{ 'low' if (is_silent or silent_update | default(false)) else 'high' }}"
+                        importance: "{{ 'low' if (is_silent or silent_update | default(false)) else 'high' }}"
+                        vibrationPattern: "{{ '0' if (is_silent or silent_update | default(false)) else '' }}"
                         sticky: "{{sticky}}"
-                        channel: "{{'alarm_stream' if critical else channel}}"
+                        channel: "{{ 'alarm_stream' if (critical and not is_silent and not silent_update | default(false)) else channel }}"
                         car_ui: "{{android_auto}}"
                         # Android/Fire TV
                         subtitle: "{{subtitle}}"
@@ -1335,10 +1561,11 @@ actions:
                           url: "{{video if video else attachment }}"
                           content-type: "{{ 'application/vnd.apple.mpegurl' if 'm3u8' in video else 'mp4' if 'mp4' in video else 'jpeg' if 'jpg' in attachment else 'gif' }}"
                         push:
+                          interruption-level: "{{ 'passive' if is_silent else 'time-sensitive' if critical else 'active' }}"
                           sound:
-                            name: "{{sound}}"
-                            volume: "{{ iif(sound == 'none', 0, volume) }}"
-                            critical: "{{ iif(critical, 1, 0) }}"
+                            name: "{{ 'none' if is_silent else sound }}"
+                            volume: "{{ 0 if is_silent else iif(sound == 'none', 0, volume) }}"
+                            critical: "{{ 0 if is_silent else iif(critical, 1, 0) }}"
                         entity_id: "{{ios_live_view}}"
                         # Actions
                         actions:
@@ -1610,10 +1837,12 @@ actions:
                                   video: "{{video}}"
                                   clickAction: "{{tap_action}}"
                                   ttl: 0
-                                  priority: high
+                                  priority: "{{ 'low' if (is_silent or silent_update | default(false)) else 'high' }}"
+                                  importance: "{{ 'low' if (is_silent or silent_update | default(false)) else 'high' }}"
+                                  vibrationPattern: "{{ '0' if (is_silent or silent_update | default(false)) else '' }}"
                                   notification_icon: "{{icon}}"
                                   sticky: "{{sticky}}"
-                                  channel: "{{'alarm_stream' if critical else channel}}"
+                                  channel: "{{ 'alarm_stream' if (critical and not is_silent and not silent_update | default(false)) else channel }}"
                                   car_ui: "{{android_auto}}"
                                   # iOS Specific
                                   subtitle: "{{subtitle}}"
@@ -1622,10 +1851,11 @@ actions:
                                     url: "{{video if video else attachment }}"
                                     content-type: "{{ 'application/vnd.apple.mpegurl' if 'm3u8' in video else 'mp4' if 'mp4' in video else 'jpeg' if 'jpg' in attachment else 'gif' }}"
                                   push:
+                                    interruption-level: "{{ 'passive' if is_silent else 'time-sensitive' if critical else 'active' }}"
                                     sound:
-                                      name: "{{sound}}"
-                                      volume: "{{ iif(sound == 'none', 0, volume) }}"
-                                      critical: "{{ iif(critical, 1, 0) }}"
+                                      name: "{{ 'none' if is_silent else sound }}"
+                                      volume: "{{ 0 if is_silent else iif(sound == 'none', 0, volume) }}"
+                                      critical: "{{ 0 if is_silent else iif(critical, 1, 0) }}"
                                   entity_id: "{{ios_live_view}}"
                                   # Actions
                                   actions:
@@ -1656,10 +1886,12 @@ actions:
                                     subject: "{{subtitle}}"
                                     clickAction: "{{tap_action}}"
                                     ttl: 0
-                                    priority: high
+                                    priority: "{{ 'low' if (is_silent or silent_update | default(false)) else 'high' }}"
+                                    importance: "{{ 'low' if (is_silent or silent_update | default(false)) else 'high' }}"
+                                    vibrationPattern: "{{ '0' if (is_silent or silent_update | default(false)) else '' }}"
                                     notification_icon: "{{icon}}"
                                     sticky: "{{sticky}}"
-                                    channel: "{{'alarm_stream' if critical else channel}}"
+                                    channel: "{{ 'alarm_stream' if (critical and not is_silent and not silent_update | default(false)) else channel }}"
                                     car_ui: "{{android_auto}}"
                                     # Android/Fire TV
                                     image:
@@ -1678,10 +1910,11 @@ actions:
                                       url: "{{video if video else attachment }}"
                                       content-type: "{{ 'application/vnd.apple.mpegurl' if 'm3u8' in video else 'mp4' if 'mp4' in video else 'jpeg' if 'jpg' in attachment else 'gif' }}"
                                     push:
+                                      interruption-level: "{{ 'passive' if is_silent else 'time-sensitive' if critical else 'active' }}"
                                       sound:
-                                        name: "{{sound}}"
-                                        volume: "{{ iif(sound == 'none', 0, volume) }}"
-                                        critical: "{{ iif(critical, 1, 0) }}"
+                                        name: "{{ 'none' if is_silent else sound }}"
+                                        volume: "{{ 0 if is_silent else iif(sound == 'none', 0, volume) }}"
+                                        critical: "{{ 0 if is_silent else iif(critical, 1, 0) }}"
                                     entity_id: "{{ios_live_view}}"
                                     # Actions
                                     actions:
@@ -1713,10 +1946,12 @@ actions:
                                 video: "{{video}}"
                                 clickAction: "{{tap_action}}"
                                 ttl: 0
-                                priority: high
+                                priority: "{{ 'low' if (is_silent or silent_update | default(false)) else 'high' }}"
+                                importance: "{{ 'low' if (is_silent or silent_update | default(false)) else 'high' }}"
+                                vibrationPattern: "{{ '0' if (is_silent or silent_update | default(false)) else '' }}"
                                 notification_icon: "{{icon}}"
                                 sticky: "{{sticky}}"
-                                channel: "{{'alarm_stream' if critical else channel}}"
+                                channel: "{{ 'alarm_stream' if (critical and not is_silent and not silent_update | default(false)) else channel }}"
                                 car_ui: "{{android_auto}}"
                                 # Android/Fire TV
                                 subtitle: "{{subtitle}}"
@@ -1731,10 +1966,11 @@ actions:
                                   url: "{{video if video else attachment }}"
                                   content-type: "{{ 'application/vnd.apple.mpegurl' if 'm3u8' in video else 'mp4' if 'mp4' in video else 'jpeg' if 'jpg' in attachment else 'gif' }}"
                                 push:
+                                  interruption-level: "{{ 'passive' if is_silent else 'time-sensitive' if critical else 'active' }}"
                                   sound:
-                                    name: "{{sound}}"
-                                    volume: "{{ iif(sound == 'none', 0, volume) }}"
-                                    critical: "{{ iif(critical, 1, 0) }}"
+                                    name: "{{ 'none' if is_silent else sound }}"
+                                    volume: "{{ 0 if is_silent else iif(sound == 'none', 0, volume) }}"
+                                    critical: "{{ 0 if is_silent else iif(critical, 1, 0) }}"
                                 entity_id: "{{ios_live_view}}"
                                 # Actions
                                 actions:
@@ -1751,7 +1987,7 @@ actions:
                                     uri: "{{url_3}}"
                                     icon: "{{icon_3}}"
                                     destructive: true
-                      - if: "{{tts and (not tts_helper or not alert_once or (tts_helper and id not in states(tts_helper)))}}"
+                      - if: "{{not is_silent and tts and (not tts_helper or not alert_once or (tts_helper and id not in states(tts_helper)))}}"
                         then:
                           sequence:
                             - choose:
@@ -1763,7 +1999,7 @@ actions:
                                       message: "{{'TTS'}}"
                                       data:
                                         tag: "{{ id }}{{'-tts'}}"
-                                        channel: "{{'alarm_stream' if critical else channel}}"
+                                        channel: "{{ 'alarm_stream' if (critical and not is_silent and not silent_update | default(false)) else channel }}"
                                         alert_once: "{{ alert_once }}"
                                         tts_text: "{{message}}"
                               default:
@@ -1772,7 +2008,7 @@ actions:
                                     message: "{{'TTS'}}"
                                     data:
                                       tag: "{{ id }}{{'-tts'}}"
-                                      channel: "{{'alarm_stream' if critical else channel}}"
+                                      channel: "{{ 'alarm_stream' if (critical and not is_silent and not silent_update | default(false)) else channel }}"
                                       alert_once: "{{ alert_once }}"
                                       tts_text: "{{message}}"
                             - action: input_text.set_value
@@ -1815,6 +2051,18 @@ actions:
 
                     objects: "{{ event['after']['data']['objects'] }}"
                     objects_satisfied: "{{ not labels|length or labels|select('in', objects)|list|length > 0 or objects|map('regex_replace', '-verified$', '')|select('in', labels)|list|length > 0 }}"
+                    is_silent: >-
+                      {% if silent_entity != '' and is_state(silent_entity, 'on') %}
+                        {% set target_objs = silent_objects | default([]) %}
+                        {% set raw_objs = (objects or []) | map('regex_replace', '-verified$', '') | list %}
+                        {% if raw_objs | length > 0 %}
+                          {{ raw_objs | select('in', target_objs) | list | length > 0 and raw_objs | reject('in', target_objs) | list | length == 0 }}
+                        {% else %}
+                          false
+                        {% endif %}
+                      {% else %}
+                        false
+                      {% endif %}
                     #loitering: "{{ loiter_timer and event['before']['motionless_count']/fps/60 < loiter_timer and event['after']['motionless_count']/fps/60 >= loiter_timer }}"
                     home: "{{presence_entity |reject('in', '') |select('is_state', 'home') |list |length != 0 }}"
                     #new_snapshot: "{{ update_thumbnail and event['before']['snapshot']['frame_time'] != event['after']['snapshot']['frame_time'] }}"
@@ -2142,11 +2390,13 @@ actions:
                                         video: "{{video}}"
                                         clickAction: "{{tap_action}}"
                                         ttl: 0
-                                        priority: high
+                                        priority: "{{ 'low' if (is_silent or silent_update | default(false)) else 'high' }}"
+                                        importance: "{{ 'low' if (is_silent or silent_update | default(false)) else 'high' }}"
+                                        vibrationPattern: "{{ '0' if (is_silent or silent_update | default(false)) else '' }}"
                                         alert_once: "{{ alert_once }}"
                                         notification_icon: "{{icon}}"
                                         sticky: "{{sticky}}"
-                                        channel: "{{'alarm_stream' if critical else channel}}"
+                                        channel: "{{ 'alarm_stream' if (critical and not is_silent and not silent_update | default(false)) else channel }}"
                                         car_ui: "{{android_auto}}"
                                         # iOS Specific
                                         subtitle: "{{subtitle}}"
@@ -2155,10 +2405,11 @@ actions:
                                           url: "{{video if video else attachment }}"
                                           content-type: "{{ 'application/vnd.apple.mpegurl' if 'm3u8' in video else 'mp4' if 'mp4' in video else 'jpeg' if 'jpg' in attachment else 'gif' }}"
                                         push:
+                                          interruption-level: "{{ 'passive' if (is_silent or silent_update) else 'time-sensitive' if critical else 'active' }}"
                                           sound:
-                                            name: "{{ iif(silent_update, 'none', sound) }}"
-                                            volume: "{{ iif((silent_update or sound == 'none'), 0, volume) }}"
-                                            critical: "{{ iif(critical, 1, 0) }}"
+                                            name: "{{ 'none' if (is_silent or silent_update) else sound }}"
+                                            volume: "{{ 0 if (is_silent or silent_update or sound == 'none') else volume }}"
+                                            critical: "{{ 0 if (is_silent or silent_update) else iif(critical, 1, 0) }}"
                                         entity_id: "{{ios_live_view}}"
                                         # Actions
                                         actions:
@@ -2189,11 +2440,13 @@ actions:
                                           subject: "{{subtitle}}"
                                           clickAction: "{{tap_action}}"
                                           ttl: 0
-                                          priority: high
+                                          priority: "{{ 'low' if (is_silent or silent_update | default(false)) else 'high' }}"
+                                          importance: "{{ 'low' if (is_silent or silent_update | default(false)) else 'high' }}"
+                                          vibrationPattern: "{{ '0' if (is_silent or silent_update | default(false)) else '' }}"
                                           alert_once: "{{ alert_once }}"
                                           notification_icon: "{{icon}}"
                                           sticky: "{{sticky}}"
-                                          channel: "{{'alarm_stream' if critical else channel}}"
+                                          channel: "{{ 'alarm_stream' if (critical and not is_silent and not silent_update | default(false)) else channel }}"
                                           car_ui: "{{android_auto}}"
                                           # Android/Fire TV
                                           image:
@@ -2212,10 +2465,11 @@ actions:
                                             url: "{{video if video else attachment }}"
                                             content-type: "{{ 'application/vnd.apple.mpegurl' if 'm3u8' in video else 'mp4' if 'mp4' in video else 'jpeg' if 'jpg' in attachment else 'gif' }}"
                                           push:
+                                            interruption-level: "{{ 'passive' if (is_silent or silent_update) else 'time-sensitive' if critical else 'active' }}"
                                             sound:
-                                              name: "{{ iif(silent_update, 'none', sound) }}"
-                                              volume: "{{ iif((silent_update or sound == 'none'), 0, volume) }}"
-                                              critical: "{{ iif(critical, 1, 0) }}"
+                                              name: "{{ 'none' if (is_silent or silent_update) else sound }}"
+                                              volume: "{{ 0 if (is_silent or silent_update or sound == 'none') else volume }}"
+                                              critical: "{{ 0 if (is_silent or silent_update) else iif(critical, 1, 0) }}"
                                           entity_id: "{{ios_live_view}}"
                                           # Actions
                                           actions:
@@ -2247,11 +2501,13 @@ actions:
                                       video: "{{video}}"
                                       clickAction: "{{tap_action}}"
                                       ttl: 0
-                                      priority: high
+                                      priority: "{{ 'low' if (is_silent or silent_update | default(false)) else 'high' }}"
+                                      importance: "{{ 'low' if (is_silent or silent_update | default(false)) else 'high' }}"
+                                      vibrationPattern: "{{ '0' if (is_silent or silent_update | default(false)) else '' }}"
                                       alert_once: "{{ alert_once }}"
                                       notification_icon: "{{icon}}"
                                       sticky: "{{sticky}}"
-                                      channel: "{{'alarm_stream' if critical else channel}}"
+                                      channel: "{{ 'alarm_stream' if (critical and not is_silent and not silent_update | default(false)) else channel }}"
                                       car_ui: "{{android_auto}}"
                                       # Android/Fire TV
                                       fontsize: "{{tv_size}}"
@@ -2266,10 +2522,11 @@ actions:
                                         url: "{{video if video else attachment }}"
                                         content-type: "{{ 'application/vnd.apple.mpegurl' if 'm3u8' in video else 'mp4' if 'mp4' in video else 'jpeg' if 'jpg' in attachment else 'gif' }}"
                                       push:
+                                        interruption-level: "{{ 'passive' if (is_silent or silent_update) else 'time-sensitive' if critical else 'active' }}"
                                         sound:
-                                          name: "{{ iif(silent_update, 'none', sound) }}"
-                                          volume: "{{ iif((silent_update or sound == 'none'), 0, volume) }}"
-                                          critical: "{{ iif(critical, 1, 0) }}"
+                                          name: "{{ 'none' if (is_silent or silent_update) else sound }}"
+                                          volume: "{{ 0 if (is_silent or silent_update or sound == 'none') else volume }}"
+                                          critical: "{{ 0 if (is_silent or silent_update) else iif(critical, 1, 0) }}"
                                       entity_id: "{{ios_live_view}}"
                                       # Actions
                                       actions:
@@ -2287,7 +2544,7 @@ actions:
                                           icon: "{{icon_3}}"
                                           destructive: true
 
-                            - if: "{{tts and (not tts_helper or not alert_once or (tts_helper and id not in states(tts_helper)))}}"
+                            - if: "{{not is_silent and tts and (not tts_helper or not alert_once or (tts_helper and id not in states(tts_helper)))}}"
                               then:
                                 sequence:
                                   - choose:
@@ -2299,7 +2556,7 @@ actions:
                                             message: "{{'TTS'}}"
                                             data:
                                               tag: "{{ id }}{{'-loitering-tts' if loitering}}"
-                                              channel: "{{'alarm_stream' if critical else channel}}"
+                                              channel: "{{ 'alarm_stream' if (critical and not is_silent and not silent_update | default(false)) else channel }}"
                                               alert_once: "{{ alert_once }}"
                                               tts_text: "{{message}}"
 
@@ -2309,7 +2566,7 @@ actions:
                                           message: "{{'TTS'}}"
                                           data:
                                             tag: "{{ id }}{{'-loitering-tts' if loitering}}"
-                                            channel: "{{'alarm_stream' if critical else channel}}"
+                                            channel: "{{ 'alarm_stream' if (critical and not is_silent and not silent_update | default(false)) else channel }}"
                                             alert_once: "{{ alert_once }}"
                                             tts_text: "{{message}}"
                                   - action: input_text.set_value
