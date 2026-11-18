@@ -1158,6 +1158,7 @@ blueprint:
           selector:
             boolean:
 mode: parallel
+max: 25
 trigger_variables:
   # severity: !input review_severity
   mqtt_topic: !input mqtt_topic
@@ -1430,7 +1431,7 @@ actions:
                           importance: "{{ 'low' if ((is_silent | bool(false)) or silent_update | default(false)) else 'high' }}"
                           vibrationPattern: "{{ '0' if ((is_silent | bool(false)) or silent_update | default(false)) else '' }}"
                           sticky: "{{sticky}}"
-                          channel: "{{ 'alarm_stream' if (critical and not (is_silent | bool(false)) and not silent_update | default(false)) else channel }}"
+                          channel: "{{ ((channel if channel else 'Frigate') ~ '-silent') if (is_silent | bool(false)) else ('alarm_stream' if critical else channel) }}"
                           car_ui: "{{android_auto}}"
                           # iOS Specific
                           subtitle: "{{subtitle}}"
@@ -1474,7 +1475,7 @@ actions:
                             importance: "{{ 'low' if ((is_silent | bool(false)) or silent_update | default(false)) else 'high' }}"
                             vibrationPattern: "{{ '0' if ((is_silent | bool(false)) or silent_update | default(false)) else '' }}"
                             sticky: "{{sticky}}"
-                            channel: "{{ 'alarm_stream' if (critical and not (is_silent | bool(false)) and not silent_update | default(false)) else channel }}"
+                            channel: "{{ ((channel if channel else 'Frigate') ~ '-silent') if (is_silent | bool(false)) else ('alarm_stream' if critical else channel) }}"
                             car_ui: "{{android_auto}}"
                             # Android/Fire TV
                             image:
@@ -1529,7 +1530,7 @@ actions:
                         importance: "{{ 'low' if ((is_silent | bool(false)) or silent_update | default(false)) else 'high' }}"
                         vibrationPattern: "{{ '0' if ((is_silent | bool(false)) or silent_update | default(false)) else '' }}"
                         sticky: "{{sticky}}"
-                        channel: "{{ 'alarm_stream' if (critical and not (is_silent | bool(false)) and not silent_update | default(false)) else channel }}"
+                        channel: "{{ ((channel if channel else 'Frigate') ~ '-silent') if (is_silent | bool(false)) else ('alarm_stream' if critical else channel) }}"
                         car_ui: "{{android_auto}}"
                         # Android/Fire TV
                         subtitle: "{{subtitle}}"
@@ -1823,7 +1824,7 @@ actions:
                                   vibrationPattern: "{{ '0' if ((is_silent | bool(false)) or silent_update | default(false)) else '' }}"
                                   notification_icon: "{{icon}}"
                                   sticky: "{{sticky}}"
-                                  channel: "{{ 'alarm_stream' if (critical and not (is_silent | bool(false)) and not silent_update | default(false)) else channel }}"
+                                  channel: "{{ ((channel if channel else 'Frigate') ~ '-silent') if (is_silent | bool(false)) else ('alarm_stream' if critical else channel) }}"
                                   car_ui: "{{android_auto}}"
                                   # iOS Specific
                                   subtitle: "{{subtitle}}"
@@ -1869,7 +1870,7 @@ actions:
                                     vibrationPattern: "{{ '0' if ((is_silent | bool(false)) or silent_update | default(false)) else '' }}"
                                     notification_icon: "{{icon}}"
                                     sticky: "{{sticky}}"
-                                    channel: "{{ 'alarm_stream' if (critical and not (is_silent | bool(false)) and not silent_update | default(false)) else channel }}"
+                                    channel: "{{ ((channel if channel else 'Frigate') ~ '-silent') if (is_silent | bool(false)) else ('alarm_stream' if critical else channel) }}"
                                     car_ui: "{{android_auto}}"
                                     # Android/Fire TV
                                     image:
@@ -1926,7 +1927,7 @@ actions:
                                 vibrationPattern: "{{ '0' if ((is_silent | bool(false)) or silent_update | default(false)) else '' }}"
                                 notification_icon: "{{icon}}"
                                 sticky: "{{sticky}}"
-                                channel: "{{ 'alarm_stream' if (critical and not (is_silent | bool(false)) and not silent_update | default(false)) else channel }}"
+                                channel: "{{ ((channel if channel else 'Frigate') ~ '-silent') if (is_silent | bool(false)) else ('alarm_stream' if critical else channel) }}"
                                 car_ui: "{{android_auto}}"
                                 # Android/Fire TV
                                 subtitle: "{{subtitle}}"
@@ -1971,7 +1972,7 @@ actions:
                                       message: "{{'TTS'}}"
                                       data:
                                         tag: "{{ id }}{{'-tts'}}"
-                                        channel: "{{ 'alarm_stream' if (critical and not (is_silent | bool(false)) and not silent_update | default(false)) else channel }}"
+                                        channel: "{{ ((channel if channel else 'Frigate') ~ '-silent') if (is_silent | bool(false)) else ('alarm_stream' if critical else channel) }}"
                                         alert_once: "{{ alert_once }}"
                                         tts_text: "{{message}}"
                               default:
@@ -1980,7 +1981,7 @@ actions:
                                     message: "{{'TTS'}}"
                                     data:
                                       tag: "{{ id }}{{'-tts'}}"
-                                      channel: "{{ 'alarm_stream' if (critical and not (is_silent | bool(false)) and not silent_update | default(false)) else channel }}"
+                                      channel: "{{ ((channel if channel else 'Frigate') ~ '-silent') if (is_silent | bool(false)) else ('alarm_stream' if critical else channel) }}"
                                       alert_once: "{{ alert_once }}"
                                       tts_text: "{{message}}"
                             - action: input_text.set_value
@@ -2357,7 +2358,7 @@ actions:
                                         alert_once: "{{ alert_once }}"
                                         notification_icon: "{{icon}}"
                                         sticky: "{{sticky}}"
-                                        channel: "{{ 'alarm_stream' if (critical and not (is_silent | bool(false)) and not silent_update | default(false)) else channel }}"
+                                        channel: "{{ ((channel if channel else 'Frigate') ~ '-silent') if (is_silent | bool(false)) else ('alarm_stream' if critical else channel) }}"
                                         car_ui: "{{android_auto}}"
                                         # iOS Specific
                                         subtitle: "{{subtitle}}"
@@ -2404,7 +2405,7 @@ actions:
                                           alert_once: "{{ alert_once }}"
                                           notification_icon: "{{icon}}"
                                           sticky: "{{sticky}}"
-                                          channel: "{{ 'alarm_stream' if (critical and not (is_silent | bool(false)) and not silent_update | default(false)) else channel }}"
+                                          channel: "{{ ((channel if channel else 'Frigate') ~ '-silent') if (is_silent | bool(false)) else ('alarm_stream' if critical else channel) }}"
                                           car_ui: "{{android_auto}}"
                                           # Android/Fire TV
                                           image:
@@ -2462,7 +2463,7 @@ actions:
                                       alert_once: "{{ alert_once }}"
                                       notification_icon: "{{icon}}"
                                       sticky: "{{sticky}}"
-                                      channel: "{{ 'alarm_stream' if (critical and not (is_silent | bool(false)) and not silent_update | default(false)) else channel }}"
+                                      channel: "{{ ((channel if channel else 'Frigate') ~ '-silent') if (is_silent | bool(false)) else ('alarm_stream' if critical else channel) }}"
                                       car_ui: "{{android_auto}}"
                                       # Android/Fire TV
                                       fontsize: "{{tv_size}}"
@@ -2508,7 +2509,7 @@ actions:
                                             message: "{{'TTS'}}"
                                             data:
                                               tag: "{{ id }}{{'-loitering-tts' if loitering}}"
-                                              channel: "{{ 'alarm_stream' if (critical and not (is_silent | bool(false)) and not silent_update | default(false)) else channel }}"
+                                              channel: "{{ ((channel if channel else 'Frigate') ~ '-silent') if (is_silent | bool(false)) else ('alarm_stream' if critical else channel) }}"
                                               alert_once: "{{ alert_once }}"
                                               tts_text: "{{message}}"
 
@@ -2518,7 +2519,7 @@ actions:
                                           message: "{{'TTS'}}"
                                           data:
                                             tag: "{{ id }}{{'-loitering-tts' if loitering}}"
-                                            channel: "{{ 'alarm_stream' if (critical and not (is_silent | bool(false)) and not silent_update | default(false)) else channel }}"
+                                            channel: "{{ ((channel if channel else 'Frigate') ~ '-silent') if (is_silent | bool(false)) else ('alarm_stream' if critical else channel) }}"
                                             alert_once: "{{ alert_once }}"
                                             tts_text: "{{message}}"
                                   - action: input_text.set_value
