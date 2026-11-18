@@ -1440,10 +1440,7 @@ actions:
                             content-type: "{{ 'application/vnd.apple.mpegurl' if 'm3u8' in video else 'mp4' if 'mp4' in video else 'jpeg' if 'jpg' in attachment else 'gif' }}"
                           push:
                             interruption-level: "{{ 'passive' if (is_silent | bool(false)) else 'time-sensitive' if critical else 'active' }}"
-                            sound:
-                              name: "{{ 'none' if (is_silent | bool(false)) else sound }}"
-                              volume: "{{ 0 if (is_silent | bool(false)) else iif(sound == 'none', 0, volume) }}"
-                              critical: "{{ 0 if (is_silent | bool(false)) else iif(critical, 1, 0) }}"
+                            sound: "{{ 'none' if (is_silent | bool(false)) else ( {'name': sound, 'volume': volume, 'critical': 1} if critical else sound ) }}"
                           entity_id: "{{ios_live_view}}"
                           # Actions
                           actions:
@@ -1497,10 +1494,7 @@ actions:
                               content-type: "{{ 'application/vnd.apple.mpegurl' if 'm3u8' in video else 'mp4' if 'mp4' in video else 'jpeg' if 'jpg' in attachment else 'gif' }}"
                             push:
                               interruption-level: "{{ 'passive' if (is_silent | bool(false)) else 'time-sensitive' if critical else 'active' }}"
-                              sound:
-                                name: "{{ 'none' if (is_silent | bool(false)) else sound }}"
-                                volume: "{{ 0 if (is_silent | bool(false)) else iif(sound == 'none', 0, volume) }}"
-                                critical: "{{ 0 if (is_silent | bool(false)) else iif(critical, 1, 0) }}"
+                              sound: "{{ 'none' if (is_silent | bool(false)) else ( {'name': sound, 'volume': volume, 'critical': 1} if critical else sound ) }}"
                             entity_id: "{{ios_live_view}}"
                             # Actions
                             actions:
@@ -1551,10 +1545,7 @@ actions:
                           content-type: "{{ 'application/vnd.apple.mpegurl' if 'm3u8' in video else 'mp4' if 'mp4' in video else 'jpeg' if 'jpg' in attachment else 'gif' }}"
                         push:
                           interruption-level: "{{ 'passive' if (is_silent | bool(false)) else 'time-sensitive' if critical else 'active' }}"
-                          sound:
-                            name: "{{ 'none' if (is_silent | bool(false)) else sound }}"
-                            volume: "{{ 0 if (is_silent | bool(false)) else iif(sound == 'none', 0, volume) }}"
-                            critical: "{{ 0 if (is_silent | bool(false)) else iif(critical, 1, 0) }}"
+                          sound: "{{ 'none' if (is_silent | bool(false)) else ( {'name': sound, 'volume': volume, 'critical': 1} if critical else sound ) }}"
                         entity_id: "{{ios_live_view}}"
                         # Actions
                         actions:
@@ -1842,10 +1833,7 @@ actions:
                                     content-type: "{{ 'application/vnd.apple.mpegurl' if 'm3u8' in video else 'mp4' if 'mp4' in video else 'jpeg' if 'jpg' in attachment else 'gif' }}"
                                   push:
                                     interruption-level: "{{ 'passive' if (is_silent | bool(false)) else 'time-sensitive' if critical else 'active' }}"
-                                    sound:
-                                      name: "{{ 'none' if (is_silent | bool(false)) else sound }}"
-                                      volume: "{{ 0 if (is_silent | bool(false)) else iif(sound == 'none', 0, volume) }}"
-                                      critical: "{{ 0 if (is_silent | bool(false)) else iif(critical, 1, 0) }}"
+                                    sound: "{{ 'none' if (is_silent | bool(false)) else ( {'name': sound, 'volume': volume, 'critical': 1} if critical else sound ) }}"
                                   entity_id: "{{ios_live_view}}"
                                   # Actions
                                   actions:
@@ -1901,10 +1889,7 @@ actions:
                                       content-type: "{{ 'application/vnd.apple.mpegurl' if 'm3u8' in video else 'mp4' if 'mp4' in video else 'jpeg' if 'jpg' in attachment else 'gif' }}"
                                     push:
                                       interruption-level: "{{ 'passive' if (is_silent | bool(false)) else 'time-sensitive' if critical else 'active' }}"
-                                      sound:
-                                        name: "{{ 'none' if (is_silent | bool(false)) else sound }}"
-                                        volume: "{{ 0 if (is_silent | bool(false)) else iif(sound == 'none', 0, volume) }}"
-                                        critical: "{{ 0 if (is_silent | bool(false)) else iif(critical, 1, 0) }}"
+                                      sound: "{{ 'none' if (is_silent | bool(false)) else ( {'name': sound, 'volume': volume, 'critical': 1} if critical else sound ) }}"
                                     entity_id: "{{ios_live_view}}"
                                     # Actions
                                     actions:
@@ -1957,10 +1942,7 @@ actions:
                                   content-type: "{{ 'application/vnd.apple.mpegurl' if 'm3u8' in video else 'mp4' if 'mp4' in video else 'jpeg' if 'jpg' in attachment else 'gif' }}"
                                 push:
                                   interruption-level: "{{ 'passive' if (is_silent | bool(false)) else 'time-sensitive' if critical else 'active' }}"
-                                  sound:
-                                    name: "{{ 'none' if (is_silent | bool(false)) else sound }}"
-                                    volume: "{{ 0 if (is_silent | bool(false)) else iif(sound == 'none', 0, volume) }}"
-                                    critical: "{{ 0 if (is_silent | bool(false)) else iif(critical, 1, 0) }}"
+                                  sound: "{{ 'none' if (is_silent | bool(false)) else ( {'name': sound, 'volume': volume, 'critical': 1} if critical else sound ) }}"
                                 entity_id: "{{ios_live_view}}"
                                 # Actions
                                 actions:
@@ -2385,10 +2367,7 @@ actions:
                                           content-type: "{{ 'application/vnd.apple.mpegurl' if 'm3u8' in video else 'mp4' if 'mp4' in video else 'jpeg' if 'jpg' in attachment else 'gif' }}"
                                         push:
                                           interruption-level: "{{ 'passive' if ((is_silent | bool(false)) or silent_update) else 'time-sensitive' if critical else 'active' }}"
-                                          sound:
-                                            name: "{{ 'none' if ((is_silent | bool(false)) or silent_update) else sound }}"
-                                            volume: "{{ 0 if ((is_silent | bool(false)) or silent_update or sound == 'none') else volume }}"
-                                            critical: "{{ 0 if ((is_silent | bool(false)) or silent_update) else iif(critical, 1, 0) }}"
+                                          sound: "{{ 'none' if ((is_silent | bool(false)) or silent_update) else ( {'name': sound, 'volume': volume, 'critical': 1} if critical else sound ) }}"
                                         entity_id: "{{ios_live_view}}"
                                         # Actions
                                         actions:
@@ -2445,10 +2424,7 @@ actions:
                                             content-type: "{{ 'application/vnd.apple.mpegurl' if 'm3u8' in video else 'mp4' if 'mp4' in video else 'jpeg' if 'jpg' in attachment else 'gif' }}"
                                           push:
                                             interruption-level: "{{ 'passive' if ((is_silent | bool(false)) or silent_update) else 'time-sensitive' if critical else 'active' }}"
-                                            sound:
-                                              name: "{{ 'none' if ((is_silent | bool(false)) or silent_update) else sound }}"
-                                              volume: "{{ 0 if ((is_silent | bool(false)) or silent_update or sound == 'none') else volume }}"
-                                              critical: "{{ 0 if ((is_silent | bool(false)) or silent_update) else iif(critical, 1, 0) }}"
+                                            sound: "{{ 'none' if ((is_silent | bool(false)) or silent_update) else ( {'name': sound, 'volume': volume, 'critical': 1} if critical else sound ) }}"
                                           entity_id: "{{ios_live_view}}"
                                           # Actions
                                           actions:
@@ -2502,10 +2478,7 @@ actions:
                                         content-type: "{{ 'application/vnd.apple.mpegurl' if 'm3u8' in video else 'mp4' if 'mp4' in video else 'jpeg' if 'jpg' in attachment else 'gif' }}"
                                       push:
                                         interruption-level: "{{ 'passive' if ((is_silent | bool(false)) or silent_update) else 'time-sensitive' if critical else 'active' }}"
-                                        sound:
-                                          name: "{{ 'none' if ((is_silent | bool(false)) or silent_update) else sound }}"
-                                          volume: "{{ 0 if ((is_silent | bool(false)) or silent_update or sound == 'none') else volume }}"
-                                          critical: "{{ 0 if ((is_silent | bool(false)) or silent_update) else iif(critical, 1, 0) }}"
+                                        sound: "{{ 'none' if ((is_silent | bool(false)) or silent_update) else ( {'name': sound, 'volume': volume, 'critical': 1} if critical else sound ) }}"
                                       entity_id: "{{ios_live_view}}"
                                       # Actions
                                       actions:
